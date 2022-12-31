@@ -34,10 +34,15 @@
 #define PCnO_DDIR   20      // Set direction of databus buffer (1=read,0=write)
 #define PCnO_GRDY   22      // Drive GREADY low when zero, tristate when 1
 
+#define PCnO_DEBUG26 26     // Labeled ADC0 on the picocart.
+
 #define LED_PIN     25
 
 void init_grom_server();
 unsigned grom_cs_low_process();
+unsigned rom_server();
+
+uint16_t read_address();
 
 #endif
 

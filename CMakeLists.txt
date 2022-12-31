@@ -11,11 +11,18 @@ pico_sdk_init()
 add_executable(picocart
 	picocart.c
 	gromserver.c
+	romserver.c
 	invadersgrom.c
+	invadersrom.c
+	minimemg.c
 	sysgrom.c
+	parsecgrom.c
+	parsecrom.c
 	)
 
-target_link_libraries(picocart pico_stdlib)
+target_link_libraries(picocart 
+	pico_multicore
+	pico_stdlib)
 
 pico_enable_stdio_usb(picocart 1)
 pico_enable_stdio_uart(picocart 1)

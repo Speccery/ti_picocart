@@ -77,6 +77,7 @@ inline static uint8_t read_data() {
 	__asm volatile ("nop");
 	__asm volatile ("nop");
 	__asm volatile ("nop");
+	__asm volatile ("nop");
 	uint32_t a = (sio_hw->gpio_in & PCn_DATAMASK) >> PCn_D0;
 	return (uint8_t)a;
 }
@@ -92,6 +93,7 @@ inline static unsigned get_mo() {
 	sio_hw->gpio_oe_clr = PCn_DATAMASK;	// RP2040 databus pins as inputs
 	sio_hw->gpio_set = (1 << PCnO_CSHIA) | (1 << PCnO_CSDAT);	// Deactivate databus and addr HI drivers
 	sio_hw->gpio_clr = (1 << PCnO_CSLOA);	// Enable external addr LO buffer chip.
+	__asm volatile ("nop");
 	__asm volatile ("nop");
 	__asm volatile ("nop");
 	__asm volatile ("nop");	
@@ -114,15 +116,24 @@ inline static unsigned get_RnW() {
  * 
  * @return unsigned 0/1
  */
-inline static unsigned get_cs() {
+inline static unsigned get_grom_cs() {
 	return (sio_hw->gpio_in & (1 << PCnI_GS)) >> PCnI_GS;
+}
+
+/**
+ * @brief Get the cartridge ROM cs pin state
+ * 
+ * @return unsigned 0/1
+ */
+inline static unsigned get_rom_cs() {
+	return (sio_hw->gpio_in & (1 << PCnI_ROMCS)) >> PCnI_ROMCS;
 }
 
 /**
  * @brief same as above but does not return 0/1 but 0 and non-zero
  */
-inline static unsigned get_cs_Y() {
-	return get_cs();	// lazy
+inline static unsigned get_grom_cs_Y() {
+	return get_grom_cs();	// lazy
 }
 
 /**
@@ -145,6 +156,8 @@ inline static void set_gready_high() {
 	sio_hw->gpio_set = 1 << PCnO_GRDY;
 }
 
+
+
 inline static void grom_sample_delay() {
 	__asm volatile ("nop");
 	__asm volatile ("nop");
@@ -161,4 +174,9 @@ inline static void grom_sample_delay() {
 
 extern const unsigned char grom994a_data[];
 extern const unsigned char grominvaders_data[];
+extern const unsigned char minimemoryg_data[];
+extern const unsigned char gromparsec_data[];
+
+extern unsigned char rominvaders_data[];
+extern unsigned char romparsec_data[];
 

@@ -101,22 +101,18 @@ void init_grom_server() {
 	ram_alloc_ptr = gram;
 }
 
-#ifndef RUN_FROM_FLASH
-__attribute__ ((section(".data")))
-#endif
+
 void copy_page(uint32_t *dst, uint32_t *src) {
 	for(int i=256/sizeof(*dst); i>0 ; i--) {
 		*dst++ = *src++;
 	}
 }
 
-#ifndef RUN_FROM_FLASH
-__attribute__ ((section(".data")))
-#endif
-unsigned grom_cs_low_process() {
+
+unsigned __time_critical_func(grom_cs_low_process)() {
 	unsigned addr = 0xFFFFF;
 
-	if(get_cs()) {
+	if(get_grom_cs()) {
 		return addr;	// Early out
 	}
 	// When we enter here, GREADY is already low and thus CPU will stop.
@@ -135,14 +131,14 @@ unsigned grom_cs_low_process() {
 				if(gromOffset < 0x6000) {
 					grom_page_ptr = (page & 0x80) ? gram : (uint8_t *)grom994a_data;
 				} else {
-					grom_page_ptr = gromRegion;	
+					grom_page_ptr = (uint8_t *)gromRegion;	
 					page = page_index & 0x1F;
 				}
 				grom_page_ptr += (page & 0x7F) << 8;
 				
 				if(m == 1) {
 					// Ordinary GROM read. Read from the current page.
-					printf("GROM read %04X %04X %02X\n", gromOffset, gromAddr, grom_page_ptr[ gromAddr & 0xFF ]);
+					// printf("GROM read %04X %04X %02X\n", gromOffset, gromAddr, grom_page_ptr[ gromAddr & 0xFF ]);
 					drive_bus( grom_page_ptr[ gromAddr & 0xFF ] );
 					total_reads++;
 				} else {
@@ -198,7 +194,9 @@ unsigned grom_cs_low_process() {
 				gromRegion = 0;	// picocart, let's not work on the system GROM area yet.
 				// gromRegion = grom994a_data + (0x6000 & gromOffset);
 			} else if(gromOffset < 0x8000) {
-				gromRegion = grominvaders_data;
+				// gromRegion = minimemoryg_data;	// Mini memory module
+				// gromRegion = grominvaders_data; // TI Invaders
+				gromRegion = gromparsec_data;	// Parsec
 			} else {
 				gromRegion = 0;	// TI-GROMmy only works with the bottom 24K
 			}
@@ -242,7 +240,7 @@ unsigned grom_cs_low_process() {
 	// Wait for the cycle to end.
 	uint32_t k;
 	do {
-		k = get_cs();
+		k = get_grom_cs();
 	} while (!k);
 
 	// Now the bus cycle has ended. Tri-state our databus and drive GROM_GREADY low for next cycle.

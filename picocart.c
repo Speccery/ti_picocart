@@ -5,6 +5,7 @@
  */
 
 #include <stdio.h>
+#include <string.h>
 #include "pico/stdlib.h"
 #include "hardware/clocks.h"
 #include "pico/multicore.h"
@@ -20,6 +21,8 @@
 #define PICO_DEFAULT_LED_PIN 25
 #endif
 
+uint8_t  active_rom_area[32*1024];
+unsigned active_rom_size = 8192;
 
 void picocart_gpio_init() {
     for(int i=0; i<8; i++)
@@ -64,10 +67,18 @@ void picocart_gpio_init() {
 void core1_busserver() {
     // Start with GREADY low, i.e. we will stop upon GROM access
     gpio_put(PCnO_GRDY, 0);    
+    uint32_t state = save_and_disable_interrupts(); //  Disable interrupts for this core.
+
     while(1) {
         rom_server();
     }
 }
+
+// debug variables.
+extern uint32_t rom_bank;
+extern uint32_t max_bank;
+extern uint32_t min_bank;
+extern uint32_t bank_switches;
 
 int main() {
 
@@ -113,8 +124,13 @@ int main() {
 
     sleep_ms(2000);
     puts("Picocart has booted.\n");
-
-
+    // memcpy(active_rom_area, rom_mspacman_data, rom_mspacman_size);
+    // active_rom_size = rom_mspacman_size;
+    memcpy(active_rom_area, romparsec_data, romparsec_size);
+    active_rom_size = romparsec_size;
+    // memcpy(active_rom_area, rom_defender_data, rom_defender_size);
+    // active_rom_size = rom_defender_size;
+    puts("Cart data copied to RAM.\n");
 
     while(0) {
         // Read data.
@@ -134,7 +150,10 @@ int main() {
     }
 
     while( 1 ) {
-
+        sleep_ms(1000);
+        printf("rom_bank=%d max=%d min=%d switches=%d\n",
+            rom_bank, max_bank, min_bank, bank_switches
+        );
     }
 
 /*

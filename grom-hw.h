@@ -67,6 +67,12 @@ inline static void data_dir_in() {
 	sio_hw->gpio_clr = (1 << PCnO_CSDAT);	// Enable external data bus buffer chip, now driving towards RP2040 pins.
 }
 
+inline static void deactive_data_buffer() {
+	sio_hw->gpio_set = (1 << PCnO_CSDAT); // Deactive data buffer immediately.
+	sio_hw->gpio_oe_clr = PCn_DATAMASK;		// RP2040 databus pins as inputs
+	sio_hw->gpio_set = (1 << PCnO_DDIR);	// Turn data bus as input for the RP2040
+}
+
 /**
  * @brief return data from the bus
  * 
@@ -177,6 +183,29 @@ extern const unsigned char grominvaders_data[];
 extern const unsigned char minimemoryg_data[];
 extern const unsigned char gromparsec_data[];
 
+extern const unsigned int romparsec_size;
+extern const unsigned int rom_mspacman_size;
+extern const unsigned int rom_defender_size;
+
+extern const unsigned int gromparsec_size;
+
 extern unsigned char rominvaders_data[];
 extern unsigned char romparsec_data[];
+extern unsigned char rom_mspacman_data[];
+extern unsigned char rom_defender_data[];
+
+
+// #define ACTIVE_ROM 	romparsec_data
+// #define ACTIVE_GROM gromparsec_data
+// #define ACTIVE_ROM_SIZE romparsec_size
+
+#define ACTIVE_GROM gromparsec_data
+#define ACTIVE_GROM_SIZE gromparsec_size
+
+extern unsigned active_rom_size;
+extern uint8_t  active_rom_area[];
+
+#define ACTIVE_ROM  active_rom_area
+#define ACTIVE_ROM_SIZE active_rom_size
+// modify also the code in main() copying the cart data to RAM.
 

@@ -18,6 +18,8 @@ add_executable(picocart
 	sysgrom.c
 	parsecgrom.c
 	parsecrom.c
+	mspacman_rom.c
+	defender_rom.c
 	)
 
 target_link_libraries(picocart 

@@ -132,9 +132,21 @@ unsigned __time_critical_func(grom_cs_low_process)() {
 					grom_page_ptr = (page & 0x80) ? gram : (uint8_t *)grom994a_data;
 				} else {
 					grom_page_ptr = (uint8_t *)gromRegion;	
-					page = page_index & 0x1F;
+					page = page_index - 0x60;
 				}
 				grom_page_ptr += (page & 0x7F) << 8;
+				if(page_index) {
+					static int min_page = 65535;
+					static int max_page = 0;
+					if(page_index > max_page) {
+						printf("New max GROM page %d %d %04X\n", page, page_index, page_index << 8);
+						max_page = page_index;
+					}
+					if(page_index < min_page) {
+						printf("New min GROM page %d %d %04X\n", page, page_index, page_index << 8);
+						min_page = page_index;
+					}
+				}
 				
 				if(m == 1) {
 					// Ordinary GROM read. Read from the current page.
@@ -193,10 +205,10 @@ unsigned __time_critical_func(grom_cs_low_process)() {
 				// enabling extensions. Thus we assume 8K GROMs here.
 				gromRegion = 0;	// picocart, let's not work on the system GROM area yet.
 				// gromRegion = grom994a_data + (0x6000 & gromOffset);
-			} else if(gromOffset < 0x8000) {
+			} else if(gromOffset < 0x6000+ACTIVE_GROM_SIZE) {
 				// gromRegion = minimemoryg_data;	// Mini memory module
 				// gromRegion = grominvaders_data; // TI Invaders
-				gromRegion = gromparsec_data;	// Parsec
+				gromRegion = ACTIVE_GROM;	// Parsec
 			} else {
 				gromRegion = 0;	// TI-GROMmy only works with the bottom 24K
 			}
@@ -244,7 +256,7 @@ unsigned __time_critical_func(grom_cs_low_process)() {
 	} while (!k);
 
 	// Now the bus cycle has ended. Tri-state our databus and drive GROM_GREADY low for next cycle.
-	data_dir_in();		// Data bus as input asap.
+	deactive_data_buffer();
 	set_gready_low();
 	restore_interrupts(state);
 

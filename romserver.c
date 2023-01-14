@@ -58,7 +58,17 @@ unsigned __time_critical_func(rom_server)() {
       continue;
 
     uint16_t a = read_address() & 0x1FFF;
+
+    // Prepare for a read
+    uint8_t *rom = active_rom_area + (rom_bank << 13);
+    uint8_t d = rom[ a ];
+
+    // Determine if this is a read or write cycle.
+    while(get_RnW() && get_DBIN() == 0)
+       ;
+
     if(get_RnW() == 0) {
+      gpio_put(PCnO_DEBUG27, 1);
       // Get the bank select information.
       unsigned mask = (active_rom_size >> 13) - 1;
       rom_bank = mask & ((a & 0xFE) >> 1);
@@ -67,32 +77,51 @@ unsigned __time_critical_func(rom_server)() {
       if(rom_bank < min_bank) min_bank = rom_bank;
       if(rom_bank > max_bank) max_bank = rom_bank;
 
-      while(get_rom_cs() == 0)
+      // Write cycles happen in pairs. Wait for both of them 
+      // to end.
+      while(get_RnW() == 0) // Wait for first write to end
         ;
-      return 0;
-    }
+      while(get_RnW() == 1) // Wait for 2nd write to start
+        ; 
+      while(get_RnW() == 0) // Wait for 2nd write to end
+        ;
 
-    uint8_t *rom = active_rom_area + (rom_bank << 13);
-    // uint8_t *rom = rominvaders_data;
-    uint8_t d = rom[ a ];
+      // We're done here. Can't wait for ROM CS to go high,
+      // since if a read cycle follows it will stay low.
+      // while(get_rom_cs() == 0)
+      //   ;
+      gpio_put(PCnO_DEBUG27, 0);
+      continue;
+    }
 
     drive_bus( d );
     gpio_put(PCnO_DEBUG26, 1);
-
+    // Prepare by fetching the 2nd byte
+    d = rom[ a - 1 ];
+    // Wait for A0 to go low.
+    while(get_A0_masked())
+      ;
+    // Present the second byte to the TI-99/4A. 
+    drive_bus( d );
+    gpio_put(PCnO_DEBUG26, 0);
     // Wait for the cycle to end.
-    uint32_t k;
-    int count = 0;
-    do {
-      if(count++ == 16) {
-        // Present the second byte to the TI-99/4A. 
-        // Timing here derived from simple counter since we cannot 
-        // both drive data out and read the address bus again with the curren picocart.
-        d = rom[ a - 1 ];
-        drive_bus( d );
-        gpio_put(PCnO_DEBUG26, 0);
-      }
-      k = get_rom_cs();
-    } while (!k);
+    while(!get_rom_cs())
+      ;
+
+
+    // uint32_t k;
+    // int count = 0;
+    // do {
+    //   if(count++ == 16) {
+    //     // Present the second byte to the TI-99/4A. 
+    //     // Timing here derived from simple counter since we cannot 
+    //     // both drive data out and read the address bus again with the curren picocart.
+    //     d = rom[ a - 1 ];
+    //     drive_bus( d );
+    //     gpio_put(PCnO_DEBUG26, 0);
+    //   }
+    //   k = get_rom_cs();
+    // } while (!k);
     deactive_data_buffer();
     gpio_put(PCnO_DEBUG26, 0); 
 

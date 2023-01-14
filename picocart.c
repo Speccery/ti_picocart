@@ -21,8 +21,9 @@
 #define PICO_DEFAULT_LED_PIN 25
 #endif
 
-uint8_t  active_rom_area[32*1024];
+uint8_t  rom_area[32*1024];
 unsigned active_rom_size = 8192;
+uint8_t  *active_rom_area = rom_area;
 
 void picocart_gpio_init() {
     for(int i=0; i<8; i++)
@@ -55,11 +56,16 @@ void picocart_gpio_init() {
     gpio_set_dir(PCnI_DBIN, GPIO_IN );  
     // Turn the databus in, so we're not colliding with drivers.
     sio_hw->gpio_oe_clr = PCn_DATAMASK;
-    // Configure our debug bit.
-    gpio_init(PCnO_DEBUG26);
-    gpio_put(PCnO_DEBUG26, 0);
-    gpio_set_dir(PCnO_DEBUG26, GPIO_OUT);
-    gpio_put(PCnO_DEBUG26, 0);
+    // Configure our debug bits.
+    for(int i=PCnO_DEBUG26; i<=PCnO_DEBUG27; i++) {
+        gpio_init(i);
+        gpio_put(i, 0);
+        gpio_set_dir(i, GPIO_OUT);
+        gpio_put(i, 0);
+    }
+    // Configure a special pin to read A0.
+    gpio_init(PCnI_BA0);
+    gpio_set_dir(PCnI_BA0, GPIO_IN);
 }
 
 
@@ -126,11 +132,16 @@ int main() {
     puts("Picocart has booted.\n");
     // memcpy(active_rom_area, rom_mspacman_data, rom_mspacman_size);
     // active_rom_size = rom_mspacman_size;
-    memcpy(active_rom_area, romparsec_data, romparsec_size);
-    active_rom_size = romparsec_size;
+    active_rom_area = rom_area;
+    if(ACTIVE_ROM_SIZE <= sizeof(rom_area))
+        memcpy(active_rom_area, ACTIVE_ROM, ACTIVE_ROM_SIZE);
+    else
+        active_rom_area = (uint8_t *)ACTIVE_ROM;   // Can't copy to ROM to SRAM, try to run for external flash.
+    active_rom_size = ACTIVE_ROM_SIZE;
     // memcpy(active_rom_area, rom_defender_data, rom_defender_size);
     // active_rom_size = rom_defender_size;
     puts("Cart data copied to RAM.\n");
+    printf("ROM_SIZE %d GROM_SIZE %d\n", ACTIVE_ROM_SIZE, ACTIVE_GROM_SIZE);
 
     while(0) {
         // Read data.

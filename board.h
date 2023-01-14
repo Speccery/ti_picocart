@@ -35,6 +35,9 @@
 #define PCnO_GRDY   22      // Drive GREADY low when zero, tristate when 1
 
 #define PCnO_DEBUG26 26     // Labeled ADC0 on the picocart.
+#define PCnO_DEBUG27 27
+
+#define PCnI_BA0    28      // Labeled ADC2. Connected to address line 0.
 
 #define LED_PIN     25
 

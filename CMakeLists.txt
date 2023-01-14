@@ -20,6 +20,9 @@ add_executable(picocart
 	parsecrom.c
 	mspacman_rom.c
 	defender_rom.c
+	extendedbasic_rom.c
+	extendedbasic_grom.c
+	dontmess_rom.c
 	)
 
 target_link_libraries(picocart 

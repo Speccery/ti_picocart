@@ -117,6 +117,10 @@ inline static unsigned get_RnW() {
 	return gpio_get(PCnI_WE);
 }
 
+inline static unsigned get_DBIN() {
+	return sio_hw->gpio_in & (1 << PCnI_DBIN);
+}
+
 /**
  * @brief Get the GROM cs pin state
  * 
@@ -162,6 +166,20 @@ inline static void set_gready_high() {
 	sio_hw->gpio_set = 1 << PCnO_GRDY;
 }
 
+/**
+ * @brief Get the A0 value. The LSB of address bus.
+ * Modified the circuit to be able to read it indepdently at any time.
+ * Thus no need to change multiplexed bus settings.
+ * 
+ * @return uint32_t 0/1
+ */
+inline static uint32_t get_A0() {
+	return (sio_hw->gpio_in & (1 << PCnI_BA0)) >> PCnI_BA0;
+}
+
+inline static uint32_t get_A0_masked() {
+	return (sio_hw->gpio_in & (1 << PCnI_BA0));
+}
 
 
 inline static void grom_sample_delay() {
@@ -195,17 +213,35 @@ extern unsigned char rom_mspacman_data[];
 extern unsigned char rom_defender_data[];
 
 
-// #define ACTIVE_ROM 	romparsec_data
-// #define ACTIVE_GROM gromparsec_data
-// #define ACTIVE_ROM_SIZE romparsec_size
+// Extended Basic
+extern const unsigned char rom_extendedbasic_data[];
+extern const unsigned int  rom_extendedbasic_size;
+extern const unsigned char grom_extendedbasic_data[];
+extern const unsigned int  grom_extendedbasic_size;
+extern const unsigned char rom_dontmess_data[];
+extern const unsigned int  rom_dontmess_size;
 
-#define ACTIVE_GROM gromparsec_data
-#define ACTIVE_GROM_SIZE gromparsec_size
+
+// #define ACTIVE_ROM 			romparsec_data
+// #define ACTIVE_ROM_SIZE romparsec_size
+// #define ACTIVE_GROM 		gromparsec_data
+// #define ACTIVE_GROM_SIZE gromparsec_size
+
+// #define ACTIVE_GROM 		grom_extendedbasic_data
+// #define ACTIVE_GROM_SIZE grom_extendedbasic_size
+// #define ACTIVE_ROM			rom_extendedbasic_data
+// #define ACTIVE_ROM_SIZE	rom_extendedbasic_size
+
+#define ACTIVE_GROM 		grom_extendedbasic_data
+#define ACTIVE_GROM_SIZE grom_extendedbasic_size
+#define ACTIVE_ROM			rom_dontmess_data
+#define ACTIVE_ROM_SIZE	rom_dontmess_size
+
 
 extern unsigned active_rom_size;
-extern uint8_t  active_rom_area[];
+extern uint8_t  *active_rom_area;
 
-#define ACTIVE_ROM  active_rom_area
-#define ACTIVE_ROM_SIZE active_rom_size
+// #define ACTIVE_ROM  active_rom_area
+// #define ACTIVE_ROM_SIZE active_rom_size
 // modify also the code in main() copying the cart data to RAM.
 

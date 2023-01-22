@@ -68,6 +68,7 @@ add_executable(picocart
         
         dontmess_rom.c    # Don't mess with Texas demo ROM
         )
+```
 
 ## Hardware architecture
 The board is pretty simple, mainly consisting of the Pico board and 74LVC245 buffer chips.

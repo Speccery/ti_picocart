@@ -72,6 +72,14 @@ add_executable(picocart
 
 ## Hardware architecture
 The board is pretty simple, mainly consisting of the Pico board and 74LVC245 buffer chips.
+Pins GPIO8..15 correspond to signals D0..7 on the schematics. This is a multiplexed 8 bit bus, which can either be connected to:
+- address lines A0..7 on the cartridge port (read only)
+- address lines A8..12 on the cartridge port (optionally expanded to A13..15 with jumper wires, read only)
+- data lines DB0..7 on the cartridge port (bidirectional)
+
+The multiplexing happens under software control by the Pico. It does mean that you can either read address bus low byte, high byte or read/write the data bus, but only one of these at a given time.
+
+Please refer to the schematics for more details.
 
 ## Hardware mod
 The current prototype board requires two patch wires for the firmware to be able to support ROM cartridges properly:

@@ -232,10 +232,15 @@ extern const unsigned int  rom_dontmess_size;
 // #define ACTIVE_ROM			rom_extendedbasic_data
 // #define ACTIVE_ROM_SIZE	rom_extendedbasic_size
 
+// #define ACTIVE_GROM 		grom_extendedbasic_data
+// #define ACTIVE_GROM_SIZE grom_extendedbasic_size
+// #define ACTIVE_ROM			rom_dontmess_data
+// #define ACTIVE_ROM_SIZE	rom_dontmess_size
+
 #define ACTIVE_GROM 		grom_extendedbasic_data
 #define ACTIVE_GROM_SIZE grom_extendedbasic_size
-#define ACTIVE_ROM			rom_dontmess_data
-#define ACTIVE_ROM_SIZE	rom_dontmess_size
+#define ACTIVE_ROM			rom_mspacman_data
+#define ACTIVE_ROM_SIZE	rom_mspacman_size
 
 
 extern unsigned active_rom_size;

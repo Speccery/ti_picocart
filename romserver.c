@@ -104,10 +104,10 @@ unsigned __time_critical_func(rom_server)() {
     // Present the second byte to the TI-99/4A. 
     drive_bus( d );
     gpio_put(PCnO_DEBUG26, 0);
-    // Wait for the cycle to end.
-    while(!get_rom_cs())
+    // Wait for the cycle to end. The cycle may end with a consecutive read/write
+    // without chip select going high. In that case A0 will toggle back to high.
+    while(!get_rom_cs() && !get_A0_masked())
       ;
-
 
     // uint32_t k;
     // int count = 0;

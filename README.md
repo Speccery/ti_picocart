@@ -1,6 +1,8 @@
 # ti_picocart
 TI-99/4A Cartridge based on the Raspberry Pi Pico
 
+![picocart picture](pictures/IMG_7161%20Large.jpeg)
+
 ## Features
 The code is loosely based on my earlier StrangeCart and TI-GROMmy projects (which both continue on their own right).
 Feature set is simple:

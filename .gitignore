@@ -1,1 +1,8 @@
 build
+defender_rom.c
+dontmess_rom.c
+extendedbasic_grom.c
+extendedbasic_rom.c
+mspacman.bin
+mspacman_rom.c
+rom_defender.c

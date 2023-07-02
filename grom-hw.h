@@ -32,6 +32,19 @@
 __attribute__ ((section(".data")))
 #endif
 
+#if defined(BOARD_VER11)
+inline static void drive_bus(uint8_t data) {
+	// Activate data bus. The direction is controlled by TI itself.
+	sio_hw->gpio_set = (1 << PCnO_SEL1);
+	sio_hw->gpio_clr = (1 << PCnO_SEL0);
+	sio_hw->gpio_oe_set = PCn_DATAMASK;	// RP2040 databus out.
+	unsigned d = data << 8;
+	// Set the databus bits high or low based on the data.
+	sio_hw->gpio_set = d;
+	sio_hw->gpio_clr = PCn_DATAMASK & ~d;
+	gpio_put(LED_PIN, 1);
+}
+#else
 inline static void drive_bus(uint8_t data) {
 	// Deactivate address bus buffers
 	sio_hw->gpio_set = (1 << PCnO_CSHIA) | (1 << PCnO_CSLOA);
@@ -44,6 +57,7 @@ inline static void drive_bus(uint8_t data) {
 	sio_hw->gpio_clr = PCn_DATAMASK & ~d;
 	gpio_put(LED_PIN, 1);
 }
+#endif
 
 /**
  * @brief turn data direction in, good for reading and not disturbing the bus.
@@ -60,6 +74,19 @@ inline static void drive_bus(uint8_t data) {
 __attribute__ ((section(".data")))
 #endif
 
+#if defined(BOARD_VER11)
+inline static void data_dir_in() {
+	gpio_put(LED_PIN, 0);
+	sio_hw->gpio_oe_clr = PCn_DATAMASK;	// RP2040 databus pins as inputs
+	sio_hw->gpio_set = (1 << PCnO_SEL1);	// Deactivate address bus buffers, turn data bus as input.
+	sio_hw->gpio_clr = (1 << PCnO_SEL0);	// Enable external data bus buffer chip, now driving towards RP2040 pins.
+}
+
+inline static void deactive_data_buffer() {
+	sio_hw->gpio_set = (1 << PCnO_SEL1) | (1 << PCnO_SEL0); // Deactive data buffer immediately.
+	sio_hw->gpio_oe_clr = PCn_DATAMASK;		// RP2040 databus pins as inputs
+}
+#else
 inline static void data_dir_in() {
 	gpio_put(LED_PIN, 0);
 	sio_hw->gpio_oe_clr = PCn_DATAMASK;	// RP2040 databus pins as inputs
@@ -72,6 +99,7 @@ inline static void deactive_data_buffer() {
 	sio_hw->gpio_oe_clr = PCn_DATAMASK;		// RP2040 databus pins as inputs
 	sio_hw->gpio_set = (1 << PCnO_DDIR);	// Turn data bus as input for the RP2040
 }
+#endif
 
 /**
  * @brief return data from the bus
@@ -93,6 +121,20 @@ inline static uint8_t read_data() {
  * 
  * @return unsigned 0/1
  */
+#if defined(BOARD_VER11)
+inline static unsigned get_mo() {
+	gpio_put(LED_PIN, 0);
+	// Set buffers so that only the low address bus buffer is enabled.
+	sio_hw->gpio_oe_clr = PCn_DATAMASK;	// RP2040 databus pins as inputs
+	sio_hw->gpio_clr = (1 << PCnO_SEL1) | (1 << PCnO_SEL0);	// Enable external addr LO buffer chip.
+	__asm volatile ("nop");
+	__asm volatile ("nop");
+	__asm volatile ("nop");
+	__asm volatile ("nop");	
+	uint32_t a = (sio_hw->gpio_in & (1 << (PCn_D0+1)));
+	return a >> (PCn_D0+1);
+}
+#else
 inline static unsigned get_mo() {
 	gpio_put(LED_PIN, 0);
 	// Set buffers so that only the low address bus buffer is enabled.
@@ -106,6 +148,7 @@ inline static unsigned get_mo() {
 	uint32_t a = (sio_hw->gpio_in & (1 << (PCn_D0+1)));
 	return a >> (PCn_D0+1);
 }
+#endif
 
 /**
  * @brief Get the RnW pin status

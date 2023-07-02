@@ -11,6 +11,7 @@
 #include "pico/multicore.h"
 #include "hardware/irq.h"
 #include "board.h"
+#include "ws2812.pio.h"
 
 #include "grom-hw.h"    // temporary during debug
 
@@ -32,22 +33,55 @@ void picocart_gpio_init() {
     gpio_init(PCnI_WE   );  
     gpio_init(PCnI_GS   );  
     gpio_init(PCnI_DBIN );  
+    gpio_init(PCnO_GRDY);
+#if defined(BOARD_VER11)
+    gpio_init(PCnO_PSRAM_CS);
+    gpio_init(PCn_DQ2);
+    gpio_init(PCn_DQ3);
+    gpio_init(PCnO_SD_CS);
+    gpio_init(PCnO_SEL0);
+    gpio_init(PCnO_SEL1);
+    gpio_init(PCnO_LEDS);
+    // Config everything to inactive state
+    gpio_put(PCnO_PSRAM_CS, 1);
+    gpio_put(PCn_DQ2, 1);
+    gpio_put(PCn_DQ3, 1);
+    gpio_put(PCnO_SD_CS, 1);
+    gpio_put(PCnO_SEL0, 1);
+    gpio_put(PCnO_SEL1, 1);
+    gpio_put(PCnO_LEDS, 1);
+    // Config the above for outputs
+    gpio_set_dir(PCnO_PSRAM_CS, GPIO_OUT);
+    gpio_set_dir(PCn_DQ2, GPIO_OUT);
+    gpio_set_dir(PCn_DQ3, GPIO_OUT);
+    gpio_set_dir(PCnO_SD_CS, GPIO_OUT);
+    gpio_set_dir(PCnO_SEL0, GPIO_OUT);
+    gpio_set_dir(PCnO_SEL1, GPIO_OUT);
+    gpio_set_dir(PCnO_LEDS, GPIO_OUT);
+#else    
     gpio_init(PCnO_CSLOA);  
     gpio_init(PCnO_CSHIA);  
     gpio_init(PCnO_CSDAT);  
     gpio_init(PCnO_DDIR );  
-    gpio_init(PCnO_GRDY);
     // Initially all buffers inactive
     gpio_put(PCnO_CSLOA, 1);
     gpio_put(PCnO_CSHIA, 1);
     gpio_put(PCnO_CSDAT, 1);
     gpio_put(PCnO_DDIR, 1);
-    gpio_put(PCnO_GRDY, 1);
     // Set direction to outputs
     gpio_set_dir(PCnO_CSLOA, GPIO_OUT);
     gpio_set_dir(PCnO_CSHIA, GPIO_OUT);
     gpio_set_dir(PCnO_CSDAT, GPIO_OUT);
     gpio_set_dir(PCnO_DDIR,  GPIO_OUT);
+    // Configure our debug bits.
+    for(int i=PCnO_DEBUG26; i<=PCnO_DEBUG27; i++) {
+        gpio_init(i);
+        gpio_put(i, 0);
+        gpio_set_dir(i, GPIO_OUT);
+        gpio_put(i, 0);
+    }
+#endif
+    gpio_put(PCnO_GRDY, 1);
     gpio_set_dir(PCnO_GRDY, GPIO_OUT);
     // Set direction to inputs
     gpio_set_dir(PCnI_ROMCS, GPIO_IN);  
@@ -56,13 +90,6 @@ void picocart_gpio_init() {
     gpio_set_dir(PCnI_DBIN, GPIO_IN );  
     // Turn the databus in, so we're not colliding with drivers.
     sio_hw->gpio_oe_clr = PCn_DATAMASK;
-    // Configure our debug bits.
-    for(int i=PCnO_DEBUG26; i<=PCnO_DEBUG27; i++) {
-        gpio_init(i);
-        gpio_put(i, 0);
-        gpio_set_dir(i, GPIO_OUT);
-        gpio_put(i, 0);
-    }
     // Configure a special pin to read A0.
     gpio_init(PCnI_BA0);
     gpio_set_dir(PCnI_BA0, GPIO_IN);
@@ -79,6 +106,47 @@ void core1_busserver() {
         rom_server();
     }
 }
+
+// Neopixel stuff
+#define NEOC_PIN_START PCnO_LEDS
+#define NEOC_LANE_START 0
+
+static unsigned int WS2812_sm = 0; /* state machine index. \todo should find a free SM */
+
+uint32_t NEO_GetPixel32bitForPIO(int lane, int pos) {
+  uint32_t val;
+  uint8_t r, g, b, w;
+  if(pos == 0) {
+    r = 0;
+    g = 25;
+    b = 0;
+    w = 0;
+  } else {
+    r = 25; g=0; b=0; w=0;
+  }
+  // NEO_GetPixelWRGB(lane, pos, &w, &r, &g, &b);
+  val = ((uint32_t)(g)<<24) | ((uint32_t)(r)<<16) | ((uint32_t)(b)<<8) | (uint32_t)(w);
+
+  return val;
+}
+
+void WS2812_Init(void) {
+  PIO pio = pio0; /* the PIO used */
+  WS2812_sm = 0; /* state machine used */
+  uint offset = pio_add_program(pio, &ws2812_program);
+  ws2812_program_init(pio, WS2812_sm, offset, NEOC_PIN_START, 800000, 0); /* initialize it for 800 kHz */
+}
+
+int WS2812_Transfer(uint32_t address, size_t nofBytes) {
+    PIO pio = pio0; /* the PIO used */
+    WS2812_sm = 0; /* state machine used */
+    int NEOC_NOF_LEDS_IN_LANE = 2;
+    for(int i=0; i<NEOC_NOF_LEDS_IN_LANE; i++) { /* without DMA: writing one after each other */
+      pio_sm_put_blocking(pio, WS2812_sm, NEO_GetPixel32bitForPIO(NEOC_LANE_START, i));
+    }
+  return 0; /* ok */
+}
+
 
 // debug variables.
 extern uint32_t rom_bank;
@@ -116,6 +184,10 @@ int main() {
     stdio_init_all();
     init_grom_server();
 
+    // Try to get neo pixel enabled
+    WS2812_Init();
+    WS2812_Transfer(0,0);
+
     multicore_launch_core1(core1_busserver);
 
     gpio_init(LED_PIN);
@@ -145,9 +217,13 @@ int main() {
 
     while(0) {
         // Read data.
+#if defined(BOARD_VER11)
+        sio_hw ->gpio_set = (1 << PCnO_SEL1);
+        sio_hw ->gpio_clr = (1 << PCnO_SEL0);
+#else        
         gpio_put(PCnO_DDIR, 1); 
         gpio_put(PCnO_CSDAT, 0);
-
+#endif
         uint32_t in = sio_hw->gpio_in;
         uint32_t oe = sio_hw->gpio_hi_oe;
         // Read data.

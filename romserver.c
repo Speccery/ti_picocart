@@ -21,14 +21,22 @@
 
 uint16_t __time_critical_func(read_address)() {
 	sio_hw->gpio_oe_clr = PCn_DATAMASK;	// RP2040 databus pins as inputs
+#if defined(BOARD_VER11)
+  sio_hw->gpio_clr = (1 << PCnO_SEL1) | (1 << PCnO_SEL0);
+#else  
 	sio_hw->gpio_set = (1 << PCnO_CSHIA) | (1 << PCnO_CSDAT) | (1 << PCnO_DDIR);	
 	sio_hw->gpio_clr = (1 << PCnO_CSLOA);	
+#endif
 	__asm volatile ("nop");
 	__asm volatile ("nop");
 	__asm volatile ("nop");
     uint32_t a = (sio_hw->gpio_in & PCn_DATAMASK) >> PCn_D0;
+#if defined(BOARD_VER11)
+sio_hw->gpio_set = (1 << PCnO_SEL0);
+#else    
     sio_hw->gpio_set = (1 << PCnO_CSLOA);
     sio_hw->gpio_clr = (1 << PCnO_CSHIA);
+#endif    
 	__asm volatile ("nop");
 	__asm volatile ("nop");
 	__asm volatile ("nop");
@@ -68,7 +76,9 @@ unsigned __time_critical_func(rom_server)() {
        ;
 
     if(get_RnW() == 0) {
+#if !defined(BOARD_VER11)      
       gpio_put(PCnO_DEBUG27, 1);
+#endif      
       // Get the bank select information.
       unsigned mask = (active_rom_size >> 13) - 1;
       rom_bank = mask & ((a & 0xFE) >> 1);
@@ -90,12 +100,16 @@ unsigned __time_critical_func(rom_server)() {
       // since if a read cycle follows it will stay low.
       // while(get_rom_cs() == 0)
       //   ;
+#if !defined(BOARD_VER11)      
       gpio_put(PCnO_DEBUG27, 0);
+#endif      
       continue;
     }
 
     drive_bus( d );
+#if !defined(BOARD_VER11)      
     gpio_put(PCnO_DEBUG26, 1);
+#endif    
     // Prepare by fetching the 2nd byte
     d = rom[ a - 1 ];
     // Wait for A0 to go low.
@@ -103,7 +117,9 @@ unsigned __time_critical_func(rom_server)() {
       ;
     // Present the second byte to the TI-99/4A. 
     drive_bus( d );
+#if !defined(BOARD_VER11)      
     gpio_put(PCnO_DEBUG26, 0);
+#endif    
     // Wait for the cycle to end. The cycle may end with a consecutive read/write
     // without chip select going high. In that case A0 will toggle back to high.
     while(!get_rom_cs() && !get_A0_masked())
@@ -123,8 +139,9 @@ unsigned __time_critical_func(rom_server)() {
     //   k = get_rom_cs();
     // } while (!k);
     deactive_data_buffer();
+#if !defined(BOARD_VER11)      
     gpio_put(PCnO_DEBUG26, 0); 
-
+#endif
   }
   return 0;
 }

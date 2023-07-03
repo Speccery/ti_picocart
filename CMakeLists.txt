@@ -34,6 +34,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
 	extendedbasic_rom.c
 	extendedbasic_grom.c
 	dontmess_rom.c
+	psram.c
 	)
 
 

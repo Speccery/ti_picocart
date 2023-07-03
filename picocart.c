@@ -12,8 +12,9 @@
 #include "hardware/irq.h"
 #include "board.h"
 #include "ws2812.pio.h"
+#include "grom-hw.h"
+#include "psram.h"
 
-#include "grom-hw.h"    // temporary during debug
 
 #define PLL_SYS_KHZ (133 * 1000)
 
@@ -113,21 +114,15 @@ void core1_busserver() {
 
 static unsigned int WS2812_sm = 0; /* state machine index. \todo should find a free SM */
 
-uint32_t NEO_GetPixel32bitForPIO(int lane, int pos) {
-  uint32_t val;
-  uint8_t r, g, b, w;
-  if(pos == 0) {
-    r = 0;
-    g = 25;
-    b = 0;
-    w = 0;
-  } else {
-    r = 25; g=0; b=0; w=0;
-  }
-  // NEO_GetPixelWRGB(lane, pos, &w, &r, &g, &b);
-  val = ((uint32_t)(g)<<24) | ((uint32_t)(r)<<16) | ((uint32_t)(b)<<8) | (uint32_t)(w);
+uint32_t neopixels[2];
 
-  return val;
+void set_neopixel(int pixel, uint8_t r, uint8_t g, uint8_t b) {
+  uint8_t w = 0;
+  neopixels[pixel & 1] = ((uint32_t)(g)<<24) | ((uint32_t)(r)<<16) | ((uint32_t)(b)<<8) | (uint32_t)(w);    
+}
+
+uint32_t NEO_GetPixel32bitForPIO(int lane, int pos) {
+    return neopixels[pos & 1];
 }
 
 void WS2812_Init(void) {
@@ -145,6 +140,65 @@ int WS2812_Transfer(uint32_t address, size_t nofBytes) {
       pio_sm_put_blocking(pio, WS2812_sm, NEO_GetPixel32bitForPIO(NEOC_LANE_START, i));
     }
   return 0; /* ok */
+}
+
+void test_psram() {
+  uint8_t dat[2], t[8], r[8];
+  psram_read_id(dat);
+  printf("PSRAM ID %02X %02X\r\n", dat[0], dat[1]);
+  // Write test data
+  psram_write_spi(0, 8, "ABCDabcd");
+
+  // Read test data
+  memset(r, 0, sizeof(r));
+  printf("SPI read: ");
+  psram_read_spi(r, 0, 8);
+  for(int i=0; i<8; i++)
+    printf("%02X ", r[i]);
+  printf("\r\nEnter QPI mode.\r\n");
+
+  // Enter QPI mode, read test data
+  psram_enter_qpi();
+  memset(r, 0, sizeof(r));
+  printf("QPI read: ");
+  psram_read_qpi(r, 0, 8);
+  for(int i=0; i<8; i++)
+    printf("%02X ", r[i]);
+
+  printf("\r\nReturn to SPI mode.\r\n");
+  // return QPI mode.
+  psram_exit_qpi();
+
+  // Read once again the test data.
+  memset(r, 0, sizeof(r));
+  printf("SPI read: ");
+  psram_read_spi(r, 0, 8);
+  for(int i=0; i<8; i++)
+    printf("%02X ", r[i]);
+ printf("\r\n");
+
+  // Benchmark. Read a number of bytes in SPI mode and then in QPI mode.
+  uint8_t buf_spi[32], buf_qpi[32];
+  memset(buf_spi, 0, sizeof(buf_spi));
+  memset(buf_qpi, 0, sizeof(buf_qpi));
+  uint64_t start_spi = time_us_64();
+  for(int i=0; i<1024; i++)
+    psram_read_spi(buf_spi, 0, sizeof(buf_spi));
+  uint64_t after_spi = time_us_64();
+  psram_enter_qpi();
+  uint64_t start_qpi = time_us_64();
+  for(int i=0; i<1024; i++)
+    psram_read_qpi(buf_qpi, 0, sizeof(buf_spi));
+  uint64_t after_qpi = time_us_64();
+  psram_exit_qpi();
+  printf("Benchmark run complete.\r\n");
+  for(int i=0; i<sizeof(buf_spi); i++) {
+    if(buf_spi[i] != buf_qpi[i]) {
+      printf("data mismatch %d %02X != %02X\r\n", i, buf_spi[i], buf_qpi[i]);
+    }
+  }
+  printf("Data comparison done.\r\n");
+  printf("Performance: SPI %d us, QPI %d us\r\n", (int)(after_spi - start_spi), (int)(after_qpi - start_qpi));
 }
 
 
@@ -186,6 +240,8 @@ int main() {
 
     // Try to get neo pixel enabled
     WS2812_Init();
+    set_neopixel(0, 20, 0, 0);
+    set_neopixel(1, 0, 20, 0);
     WS2812_Transfer(0,0);
 
     multicore_launch_core1(core1_busserver);
@@ -205,15 +261,35 @@ int main() {
     // memcpy(active_rom_area, rom_mspacman_data, rom_mspacman_size);
     // active_rom_size = rom_mspacman_size;
     active_rom_area = rom_area;
-    if(ACTIVE_ROM_SIZE <= sizeof(rom_area))
+    if(ACTIVE_ROM_SIZE <= sizeof(rom_area)) {
         memcpy(active_rom_area, ACTIVE_ROM, ACTIVE_ROM_SIZE);
-    else
+        puts("Cart data copied to RAM.\n");
+    } else
         active_rom_area = (uint8_t *)ACTIVE_ROM;   // Can't copy to ROM to SRAM, try to run for external flash.
     active_rom_size = ACTIVE_ROM_SIZE;
     // memcpy(active_rom_area, rom_defender_data, rom_defender_size);
     // active_rom_size = rom_defender_size;
-    puts("Cart data copied to RAM.\n");
+    
     printf("ROM_SIZE %d GROM_SIZE %d\n", ACTIVE_ROM_SIZE, ACTIVE_GROM_SIZE);
+
+    // Print pin functions.
+    for(int i=0; i<30; i++) {
+      printf("Pin %d Func %d\r\n", i, gpio_get_function(i));
+    }
+    printf("Configuring SPI as GPIO\r\n");
+    for(int i=SPI_SCK; i <= PCnO_PSRAM_CS; i++) {
+      gpio_init(i);
+      gpio_set_dir(i, i == SPI_MISO ? GPIO_IN : GPIO_OUT);
+      gpio_put(i, 1);
+    }
+    // Print pin functions again.
+    for(int i=SPI_SCK; i<=PCnO_PSRAM_CS; i++) {
+      printf("Pin %d Func %d\r\n", i, gpio_get_function(i));
+    }
+
+    // Test PSRAM
+    psram_init();
+    test_psram();
 
     while(0) {
         // Read data.
@@ -225,15 +301,34 @@ int main() {
         gpio_put(PCnO_CSDAT, 0);
 #endif
         uint32_t in = sio_hw->gpio_in;
-        uint32_t oe = sio_hw->gpio_hi_oe;
+        uint32_t oe = sio_hw->gpio_oe;
         // Read data.
         uint8_t dat = read_data();
         // Read address
         uint32_t a = read_address();
+        // Read manually low 8 bits once more.
+        sio_hw->gpio_clr = (1 << PCnO_SEL1) | (1 << PCnO_SEL0);
+        __asm volatile ("nop");
+        __asm volatile ("nop");
+        __asm volatile ("nop");
+        uint32_t aa = sio_hw->gpio_in;
 
-        printf("in=%08X oe=%08X addr=%04X dat=%02X\n", in, oe, a, dat);
+        // Debug - make all buffers inactive.
+        sio_hw ->gpio_set = (1 << PCnO_SEL1) | (1 << PCnO_SEL0);
 
-        sleep_ms(50);
+        // Make GRDY follow GROM CS
+        if(get_grom_cs()) { 
+            set_gready_high();
+            set_neopixel(1, 0, 0, 20);
+        } else {
+            set_gready_low();
+            set_neopixel(1, 0, 0, 0);
+        }
+        WS2812_Transfer(0,0);
+
+        printf("in=%08X oe=%08X addr=%04X dat=%02X aa=%08X\n", in, oe, a, dat, aa);
+
+        sleep_ms(100);
     }
 
     while( 1 ) {

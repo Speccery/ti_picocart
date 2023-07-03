@@ -78,8 +78,9 @@ __attribute__ ((section(".data")))
 inline static void data_dir_in() {
 	gpio_put(LED_PIN, 0);
 	sio_hw->gpio_oe_clr = PCn_DATAMASK;	// RP2040 databus pins as inputs
-	sio_hw->gpio_set = (1 << PCnO_SEL1);	// Deactivate address bus buffers, turn data bus as input.
-	sio_hw->gpio_clr = (1 << PCnO_SEL0);	// Enable external data bus buffer chip, now driving towards RP2040 pins.
+	// Enable external data bus buffer chip
+	sio_hw->gpio_set = (1 << PCnO_SEL1);	
+	sio_hw->gpio_clr = (1 << PCnO_SEL0);	
 }
 
 inline static void deactive_data_buffer() {
@@ -270,20 +271,20 @@ extern const unsigned int  rom_dontmess_size;
 // #define ACTIVE_GROM 		gromparsec_data
 // #define ACTIVE_GROM_SIZE gromparsec_size
 
-// #define ACTIVE_GROM 		grom_extendedbasic_data
-// #define ACTIVE_GROM_SIZE grom_extendedbasic_size
-// #define ACTIVE_ROM			rom_extendedbasic_data
-// #define ACTIVE_ROM_SIZE	rom_extendedbasic_size
+#define ACTIVE_GROM 		grom_extendedbasic_data
+#define ACTIVE_GROM_SIZE grom_extendedbasic_size
+#define ACTIVE_ROM			rom_extendedbasic_data
+#define ACTIVE_ROM_SIZE	rom_extendedbasic_size
 
 // #define ACTIVE_GROM 		grom_extendedbasic_data
 // #define ACTIVE_GROM_SIZE grom_extendedbasic_size
 // #define ACTIVE_ROM			rom_dontmess_data
 // #define ACTIVE_ROM_SIZE	rom_dontmess_size
 
-#define ACTIVE_GROM 		grom_extendedbasic_data
-#define ACTIVE_GROM_SIZE grom_extendedbasic_size
-#define ACTIVE_ROM			rom_mspacman_data
-#define ACTIVE_ROM_SIZE	rom_mspacman_size
+// #define ACTIVE_GROM 		grom_extendedbasic_data
+// #define ACTIVE_GROM_SIZE 	grom_extendedbasic_size
+// #define ACTIVE_ROM			rom_mspacman_data
+// #define ACTIVE_ROM_SIZE		rom_mspacman_size
 
 
 extern unsigned active_rom_size;

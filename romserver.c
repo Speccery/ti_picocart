@@ -58,6 +58,7 @@ uint32_t bank_switches = 0;
  */
 unsigned __time_critical_func(rom_server)() {
 
+
   while( 1 ) {
     if(get_grom_cs() == 0) {
       grom_cs_low_process();

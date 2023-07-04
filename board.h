@@ -9,7 +9,7 @@
  *  - TI-SuperGROMmy
  * 	- TI-picocart
  * 
- * This version for picocart
+ * This version for picocart.
  *
  *  Created on: 30 Dec 2022
  *      Author: erikpiehl
@@ -19,6 +19,7 @@
 #define _BOARD_H_
 
 #define BOARD_VER11 // Version 1.1 of the board
+#define QPI_REVISION
 
 // GPIO bidirection databus is at bits 8..15
 #define PCn_D0      8
@@ -31,12 +32,21 @@
 #define PCnI_DBIN   16
 // GPIO control outputs
 #if defined(BOARD_VER11)
+// #define SPI_MOSI    3
+// #define SPI_MISO    4
 #define SPI_SCK     2
-#define SPI_MOSI    3
-#define SPI_MISO    4
+#   if defined(QPI_REVISION)
+#       define SPI_MOSI_DQ0 8 
+#       define SPI_MISO_DQ1 9
+#       define PCn_DQ2     10
+#       define PCn_DQ3     11
+#   else
+#       define SPI_MOSI_DQ0 3 
+#       define SPI_MISO_DQ1 4
+#       define PCn_DQ2     6
+#       define PCn_DQ3     7
+#   endif
 #define PCnO_PSRAM_CS 5
-#define PCn_DQ2     6
-#define PCn_DQ3     7
 #define PCnO_SD_CS  27
 #define PCnO_SEL0   20
 #define PCnO_SEL1   21

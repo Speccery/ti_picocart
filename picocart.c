@@ -1,7 +1,10 @@
 /**
- * Copyright (c) 2020 Raspberry Pi (Trading) Ltd.
+ * picocart.c 
+ * Erik Piehl (C) 2023-07-03
+ * 
+ * Used Raspberry Pi LED flashing SDK example as the basis.
+ * That one is Copyright (c) 2020 Raspberry Pi (Trading) Ltd.
  *
- * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include <stdio.h>
@@ -37,24 +40,30 @@ void picocart_gpio_init() {
     gpio_init(PCnO_GRDY);
 #if defined(BOARD_VER11)
     gpio_init(PCnO_PSRAM_CS);
+# if !defined(QPI_REVISION)    
     gpio_init(PCn_DQ2);
     gpio_init(PCn_DQ3);
+# endif    
     gpio_init(PCnO_SD_CS);
     gpio_init(PCnO_SEL0);
     gpio_init(PCnO_SEL1);
     gpio_init(PCnO_LEDS);
     // Config everything to inactive state
     gpio_put(PCnO_PSRAM_CS, 1);
+# if !defined(QPI_REVISION)    
     gpio_put(PCn_DQ2, 1);
     gpio_put(PCn_DQ3, 1);
+#endif    
     gpio_put(PCnO_SD_CS, 1);
     gpio_put(PCnO_SEL0, 1);
     gpio_put(PCnO_SEL1, 1);
     gpio_put(PCnO_LEDS, 1);
     // Config the above for outputs
     gpio_set_dir(PCnO_PSRAM_CS, GPIO_OUT);
+# if !defined(QPI_REVISION)    
     gpio_set_dir(PCn_DQ2, GPIO_OUT);
     gpio_set_dir(PCn_DQ3, GPIO_OUT);
+# endif    
     gpio_set_dir(PCnO_SD_CS, GPIO_OUT);
     gpio_set_dir(PCnO_SEL0, GPIO_OUT);
     gpio_set_dir(PCnO_SEL1, GPIO_OUT);
@@ -161,7 +170,19 @@ void test_psram() {
   psram_enter_qpi();
   memset(r, 0, sizeof(r));
   printf("QPI read: ");
+  // oscilloscope trigger.
+  gpio_put(PCnO_GRDY,0);
+  gpio_put(PCnO_GRDY,0);
+  gpio_put(PCnO_GRDY,0);
+  gpio_put(PCnO_GRDY,1);
   psram_read_qpi(r, 0, 8);
+  for(int i=0; i<8; i++)
+    printf("%02X ", r[i]);
+
+  // Read with the other QPI function.
+  memset(r, 0, sizeof(r));
+  printf("\r\nQPI read2: ");
+  psram_read_qpi2(r, 0, 8);
   for(int i=0; i<8; i++)
     printf("%02X ", r[i]);
 
@@ -190,6 +211,13 @@ void test_psram() {
   for(int i=0; i<1024; i++)
     psram_read_qpi(buf_qpi, 0, sizeof(buf_spi));
   uint64_t after_qpi = time_us_64();
+
+  // Test reading a single byte.
+  uint64_t start_qpi_byte = time_us_64();
+  for(int i=0; i<1024*1024; i++)
+    psram_read_qpi(buf_qpi, 0, 1);
+  uint64_t end_qpi_byte = time_us_64();
+
   psram_exit_qpi();
   printf("Benchmark run complete.\r\n");
   for(int i=0; i<sizeof(buf_spi); i++) {
@@ -199,6 +227,7 @@ void test_psram() {
   }
   printf("Data comparison done.\r\n");
   printf("Performance: SPI %d us, QPI %d us\r\n", (int)(after_spi - start_spi), (int)(after_qpi - start_qpi));
+  printf("1 meg single byte read: %d us\r\n", (int)(end_qpi_byte - start_qpi_byte));
 }
 
 
@@ -244,8 +273,6 @@ int main() {
     set_neopixel(1, 0, 20, 0);
     WS2812_Transfer(0,0);
 
-    multicore_launch_core1(core1_busserver);
-
     gpio_init(LED_PIN);
     gpio_set_dir(LED_PIN, GPIO_OUT);
     gpio_put(LED_PIN, 1);
@@ -279,9 +306,12 @@ int main() {
     printf("Configuring SPI as GPIO\r\n");
     for(int i=SPI_SCK; i <= PCnO_PSRAM_CS; i++) {
       gpio_init(i);
-      gpio_set_dir(i, i == SPI_MISO ? GPIO_IN : GPIO_OUT);
+      gpio_set_dir(i, i == SPI_MISO_DQ1 ? GPIO_IN : GPIO_OUT);
       gpio_put(i, 1);
     }
+#if defined(QPI_REVISION)
+  sio_hw->gpio_oe_clr = 0xF00;  // Turn everything inputs to be sure.
+#endif   
     // Print pin functions again.
     for(int i=SPI_SCK; i<=PCnO_PSRAM_CS; i++) {
       printf("Pin %d Func %d\r\n", i, gpio_get_function(i));
@@ -290,6 +320,9 @@ int main() {
     // Test PSRAM
     psram_init();
     test_psram();
+
+    multicore_launch_core1(core1_busserver);
+
 
     while(0) {
         // Read data.
